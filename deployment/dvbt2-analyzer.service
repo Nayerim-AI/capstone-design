@@ -1,0 +1,19 @@
+[Unit]
+Description=DVB-T2 Coverage Analyzer Telegram Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=orangepi
+WorkingDirectory=/home/orangepi/capstone-design-repo
+EnvironmentFile=/home/orangepi/capstone-design-repo/.env
+ExecStartPre=/bin/sleep 10
+ExecStart=/usr/bin/python3 /home/orangepi/capstone-design-repo/main.py --mode telegram
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
