@@ -1,0 +1,10 @@
+# DVB-T2 channel mapping placeholder.
+# Jangan mengarang frekuensi lokal. Isi manual sesuai kanal/frekuensi lapangan.
+# Format minimal: channel_name, frequency_mhz, bandwidth_mhz, notes
+
+channels:
+  TEST_CH:
+    channel_name: "TEST_CH"
+    frequency_mhz: 0.0
+    bandwidth_mhz: 8.0
+    notes: "Isi sesuai kanal DVB-T2 lapangan; placeholder untuk uji konfigurasi"

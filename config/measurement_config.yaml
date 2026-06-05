@@ -1,0 +1,69 @@
+# DVB-T2 Coverage Analyzer - Measurement Configuration
+# Gunakan file ini untuk konfigurasi pengukuran lapangan.
+# Semua perubahan dicatat di version control agar traceable.
+
+# === SDR Configuration ===
+SDR_GAIN_DB: 19.7
+# Gain RTL-SDR dalam dB. Nilai fixed/manual (bukan auto gain).
+# Gunakan list_gains() untuk melihat gain yang tersedia di device.
+# Nilai terdekat yang didukung device akan dipilih otomatis.
+
+SAMPLE_RATE_HZ: 2048000
+# Sample rate RTL-SDR dalam Hz. Default 2.048 MSps.
+
+MEASUREMENT_BANDWIDTH_HZ: 1800000
+# Bandwidth pengukuran dalam Hz.
+# CATATAN: 1.8 MHz, bukan lebar kanal DVB-T2 penuh (8 MHz).
+# Nilai ini adalah center-bandpower estimation, bukan integrated channel power.
+
+MEASUREMENT_MODE: "center_bandpower_1p8mhz"
+# Mode pengukuran saat ini.
+# center_bandpower_1p8mhz: bandpower pada ±0.9 MHz sekitar center frequency.
+# Mode ini tidak merepresentasikan total kanal DVB-T2 8 MHz.
+
+# === Channel / Frequency ===
+CHANNEL_NAME: "TEST_CH"
+# Nama kanal DVB-T2. Isi sesuai tabel dvbt2_channels.yaml.
+# Gunakan "TEST_CH" sebagai placeholder sebelum mapping ke kanal lokal.
+
+FREQUENCY_MHZ: 514.0
+# Frekuensi center dalam MHz.
+
+# === Physical Setup ===
+RX_ANTENNA_HEIGHT_M: 1.5
+# Tinggi antena receiver dari tanah dalam meter.
+# Catat fisik saat pengujian lapangan.
+
+CABLE_LOSS_DB: 0.0
+# Rugi kabel RF dalam dB. Diukur atau estimasi.
+# Default 0.0 jika belum diukur.
+
+ANTENNA_FACTOR_DB_PER_M: null
+# Antenna factor dalam dB/m. Null jika belum diketahui.
+# Antenna factor tergantung frekuensi dan jenis antena.
+# Jangan isi asal.
+
+# === Calibration ===
+CALIBRATION_MODE: "raw"
+# Mode kalibrasi:
+#   raw                            - nilai mentah tanpa offset (default)
+#   radioplanner_model_aligned     - offset dari anchor point RadioPlanner
+#   reference_instrument_calibrated- kalibrasi dengan HD Ranger/SA (hanya jika ada)
+
+CALIBRATION_OFFSET_DB: 0.0
+# Offset kalibrasi dalam dB. Default 0.0 (belum dikalibrasi).
+# Hanya diisi dengan mode radioplanner_model_aligned atau reference_instrument_calibrated.
+
+CALIBRATION_SOURCE: "none"
+# Sumber offset kalibrasi:
+#   none                                             - belum ada offset
+#   compute_model_aligned_offset.py:<tanggal>:<anchor_point>
+#   hd_ranger_calibration:<tanggal>:<instrument_id>
+#   spectrum_analyzer_calibration:<tanggal>:<instrument_id>
+
+# === Komdigi Reference Thresholds ===
+KOMDIGI_LOWER_DBUVM: 39.5
+# Batas bawah acuan field strength DVB-T2 Komdigi dalam dBµV/m.
+
+KOMDIGI_UPPER_DBUVM: 76.2
+# Batas atas acuan field strength DVB-T2 Komdigi dalam dBµV/m.

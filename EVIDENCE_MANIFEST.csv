@@ -1,0 +1,12 @@
+no,evidence_type,file_name_or_path,source,needed_for,status,notes
+1,foto alat,docs/evidence/foto_alat.jpg,Kamera/HP,Menunjukkan setup Orange Pi Zero3 + RTL-SDR V3 + antena capung + GPS BU-353,needed,Ambil foto close-up wiring dan posisi antena
+2,foto lokasi uji,docs/evidence/foto_lokasi_titik_uji.jpg,Kamera/HP,Konteks lingkungan pengukuran dan obstacle,needed,Minimal satu foto per titik uji
+3,screenshot terminal pengukuran,docs/evidence/screenshot_terminal_measurement.png,Terminal OrangePi Zero3,Bukti program berjalan dan output CLI/log,needed,Sertakan command dan hasil
+4,file CSV log,data/measurement_log.csv,Aplikasi DVB-T2 Coverage Analyzer,Data utama laporan dan tabel pembanding,missing,Belum ada logger measurement RF lengkap; saat ini hanya data/gps_log.csv
+5,screenshot pesan Telegram,docs/evidence/screenshot_telegram_measure.png,Telegram Bot,Bukti hasil field strength estimasi dan koordinat terkirim,needed,Screenshot /measure dengan GPS Valid
+6,screenshot RadioPlanner Field Strength,docs/evidence/radioplanner_field_strength.png,RadioPlanner,Bukti peta/prediksi field strength,needed,Frekuensi dan parameter transmitter harus tampak/tercatat
+7,screenshot RadioPlanner Point Analysis,docs/evidence/radioplanner_point_analysis.png,RadioPlanner,Nilai dBµV/m pada koordinat GPS alat,needed,Satu screenshot atau export per titik uji
+8,tabel perbandingan alat vs RadioPlanner,docs/evidence/tabel_perbandingan.csv,Analisis laporan,Perbandingan lokasi-koordinat-frekuensi-selisih,needed,Gunakan format di RADIOPLANNER_COMPARISON_PLAN.md
+9,catatan parameter pengujian,docs/evidence/parameter_pengujian.md,Catatan lapangan,Reproducibility dan metode,needed,Catat tinggi antena Rx, frekuensi, gain SDR, antenna factor, cable loss, cuaca, obstacle
+10,file GPS log,data/gps_log.csv,Aplikasi GPSReader,Bukti koordinat GPS masuk ke log,available,Sudah ada, tetapi belum tergabung dengan measurement RF
+11,system log,logs/system.log,Aplikasi/logger,Bukti service, error GPS/Telegram/RTL-SDR,available,Gunakan untuk troubleshooting, bukan data utama field strength

@@ -9,6 +9,9 @@ try:
 except ImportError:
     RtlSdr = None
 
+import logging
+logger = logging.getLogger("CapstoneDvbT2")
+
 
 @dataclass
 class Dvbt2SdrConfig:
@@ -24,6 +27,41 @@ class Dvbt2SdrConfig:
     warmup_reads: int = 2
     settle_time_s: float = 1.0
     repeat_delay_s: float = 0.5
+    calibration_mode: str = "raw"
+    cable_loss_db: float = 0.0
+    antenna_factor_db_per_m: float | None = None
+    komdigi_lower_dbuvm: float = 39.5
+    komdigi_upper_dbuvm: float = 76.2
+    rx_antenna_height_m: float | None = None
+
+
+_SUPPORTED_GAINS_CACHE = {}
+
+
+def list_sdr_available_gains():
+    """Return available gain values for the first RTL-SDR device, or None."""
+    if RtlSdr is None:
+        return None
+    try:
+        sdr = RtlSdr()
+        gains = sdr.valid_gains_db
+        sdr.close()
+        return sorted(gains)
+    except Exception as exc:
+        logger.warning("Tidak bisa membaca available gains: %s", exc)
+        return None
+
+
+def pick_nearest_gain(requested_gain, available_gains):
+    """Pilih gain terdekat yang didukung device.\n\n    Jika requested_gain ada di daftar, pakai itu.\n    Jika tidak, pilih gain terdekat (tidak melebihi requested_gain).\n    """
+    if not available_gains:
+        return requested_gain
+    if requested_gain in available_gains:
+        return requested_gain
+    lower = [g for g in available_gains if g <= requested_gain]
+    if lower:
+        return max(lower)
+    return min(available_gains)
 
 
 def initialize_sdr(freq_mhz, config=None):
@@ -40,7 +78,16 @@ def initialize_sdr(freq_mhz, config=None):
         sdr = RtlSdr()
         sdr.sample_rate = config.sample_rate
         sdr.center_freq = float(freq_mhz) * 1e6
-        sdr.gain = config.gain_db
+
+        # Set fixed gain, pilih gain terdekat yang didukung device
+        gains = sdr.valid_gains_db
+        actual_gain = pick_nearest_gain(config.gain_db, sorted(gains))
+        logger.info(
+            "Requested gain: %.1f dB, selected: %.1f dB, available: %s",
+            config.gain_db, actual_gain, gains,
+        )
+        sdr.gain = actual_gain
+
         time.sleep(config.settle_time_s)
         return sdr
     except Exception as exc:
@@ -55,13 +102,11 @@ def capture_iq_samples(sdr, config=None):
     """Ambil IQ sample kompleks dari RTL-SDR."""
     if config is None:
         config = Dvbt2SdrConfig()
-
     return sdr.read_samples(config.num_samples)
 
 
 def compute_psd(samples, config=None):
-    """
-    Hitung PSD relatif menggunakan FFT, window Hann, dan averaging Welch sederhana.
+    """Hitung PSD relatif menggunakan FFT, window Hann, dan averaging Welch sederhana.
 
     Output PSD masih relatif terhadap skala RTL-SDR, bukan dBm absolut.
     """
@@ -80,7 +125,7 @@ def compute_psd(samples, config=None):
 
     for idx in range(segment_count):
         start = idx * hop_size
-        segment = samples[start : start + config.fft_size]
+        segment = samples[start: start + config.fft_size]
         segment = segment - np.mean(segment)
         windowed_segment = segment * window
         fft_result = np.fft.fft(windowed_segment, n=config.fft_size)
@@ -97,8 +142,7 @@ def compute_psd(samples, config=None):
 
 
 def calculate_bandpower(freqs_hz, psd_db, config=None):
-    """
-    Hitung bandpower relatif pada measurement bandwidth.
+    """Hitung bandpower relatif pada measurement bandwidth.
 
     Area sekitar DC/center frequency dibuang untuk mengurangi efek DC spike RTL-SDR.
     """
@@ -122,20 +166,42 @@ def calculate_bandpower(freqs_hz, psd_db, config=None):
     return float(bandpower_db)
 
 
-def estimate_field_strength(bandpower_relative_db, calibration_offset_db=0.0):
-    """
-    Estimasi field strength berbasis bandpower relatif dan offset kalibrasi.
+def calculate_total_correction_db(
+    calibration_offset_db=0.0,
+    cable_loss_db=0.0,
+    antenna_factor_db_per_m=None,
+):
+    """Hitung total koreksi transparan.
 
-    Nilai ini bukan field strength absolut tersertifikasi. Offset kalibrasi perlu
-    diisi dari data pembanding alat ukur referensi.
+    Rumus:
+      total_correction_db = calibration_offset_db + cable_loss_db + antenna_factor_db_per_m (jika ada)
+
+    Jika antenna_factor_db_per_m belum diketahui (None), lewati.
     """
-    return float(bandpower_relative_db + calibration_offset_db)
+    total = calibration_offset_db + cable_loss_db
+    if antenna_factor_db_per_m is not None:
+        total += antenna_factor_db_per_m
+    return total
+
+
+def estimate_field_strength(bandpower_relative_db, total_correction_db=0.0):
+    """Estimasi field strength berbasis bandpower relatif dan total koreksi transparan.
+
+    field_strength_est_dbuvm = raw_bandpower_db + total_correction_db
+
+    Nilai ini bukan field strength absolut tersertifikasi. Total koreksi perlu diisi
+    dari data kalibrasi/antenna factor/cable loss atau offset model RadioPlanner.
+    """
+    return float(bandpower_relative_db + total_correction_db)
 
 
 def classify_signal_quality(field_strength_dbuvm_est):
-    """Klasifikasi kualitas sinyal berdasarkan estimasi dBuV/m."""
-    value = float(field_strength_dbuvm_est)
+    """Klasifikasi kualitas sinyal berdasarkan estimasi dBuV/m.
 
+    Threshold ini adalah nilai kerja sementara.
+    Untuk kategori Komdigi resmi, gunakan classify_komdigi_reference().
+    """
+    value = float(field_strength_dbuvm_est)
     if value > 65.0:
         return "Sangat Baik"
     if 55.0 <= value <= 65.0:
@@ -147,19 +213,47 @@ def classify_signal_quality(field_strength_dbuvm_est):
     return "Sangat Lemah"
 
 
-def _base_result(freq_mhz, config):
+def classify_komdigi_reference(field_strength_est_dbuvm, lower_dbuvm=39.5, upper_dbuvm=76.2):
+    """Klasifikasi berdasarkan acuan Komdigi DVB-T2.
+
+    Kategori ini bukan lulus/gagal alat. Alat berhasil jika mampu membaca
+    dan mengklasifikasikan nilai.
+
+    - field_strength_est_dbuvm < lower_dbuvm → DI_BAWAH_ACUAN
+    - lower_dbuvm <= field_strength_est_dbuvm <= upper_dbuvm → DALAM_RENTANG_ACUAN
+    - field_strength_est_dbuvm > upper_dbuvm → DI_ATAS_ACUAN
+    """
+    if field_strength_est_dbuvm is None:
+        return "TIDAK_TERUKUR"
+    if field_strength_est_dbuvm < lower_dbuvm:
+        return "DI_BAWAH_ACUAN"
+    if field_strength_est_dbuvm <= upper_dbuvm:
+        return "DALAM_RENTANG_ACUAN"
+    return "DI_ATAS_ACUAN"
+
+
+def get_calibration_disclaimer(calibration_mode):
+    """Return disclaimer sesuai mode kalibrasi."""
+    if calibration_mode == "reference_instrument_calibrated":
+        return "hasil dikalibrasi dengan alat referensi"
+    return "estimasi SDR, bukan kalibrasi absolut"
+
+
+def _base_result(freq_mhz, config, actual_gain_db=None):
     return {
         "frequency_mhz": float(freq_mhz),
         "sample_rate_msps": float(config.sample_rate / 1e6),
         "measurement_bw_mhz": float(config.measurement_bw_hz / 1e6),
         "gain_db": float(config.gain_db),
+        "actual_gain_db": float(actual_gain_db) if actual_gain_db is not None else float(config.gain_db),
         "calibration_offset_db": float(config.calibration_offset_db),
+        "calibration_mode": config.calibration_mode,
+        "measurement_mode": "center_bandpower_1p8mhz",
     }
 
 
-def run_single_measurement(freq_mhz=514.0, repeat=5, config=None):
-    """
-    Jalankan pengukuran DVB-T2 pada satu frekuensi dan kembalikan dictionary hasil.
+def run_single_measurement(freq_mhz=514.0, repeat=5, config=None, app_config=None):
+    """Jalankan pengukuran DVB-T2 pada satu frekuensi dan kembalikan dictionary hasil.
 
     Hasil power dan field strength adalah estimasi relatif, bukan nilai absolut
     tersertifikasi.
@@ -172,6 +266,10 @@ def run_single_measurement(freq_mhz=514.0, repeat=5, config=None):
 
     try:
         sdr = initialize_sdr(freq_mhz, config)
+
+        # Catat actual gain setelah SDR diinisialisasi
+        actual_gain = getattr(sdr, "gain", config.gain_db)
+        result["actual_gain_db"] = float(actual_gain)
 
         for _ in range(config.warmup_reads):
             capture_iq_samples(sdr, config)
@@ -186,8 +284,18 @@ def run_single_measurement(freq_mhz=514.0, repeat=5, config=None):
 
         measurements = np.asarray(raw_measurements, dtype=np.float64)
         average_bandpower_db = float(np.mean(measurements))
-        field_strength_est = estimate_field_strength(
-            average_bandpower_db, config.calibration_offset_db
+
+        # Hitung total correction dan field strength secara transparan
+        total_correction_db = calculate_total_correction_db(
+            calibration_offset_db=config.calibration_offset_db,
+            cable_loss_db=config.cable_loss_db,
+            antenna_factor_db_per_m=config.antenna_factor_db_per_m,
+        )
+        field_strength_est = estimate_field_strength(average_bandpower_db, total_correction_db)
+        komdigi_category = classify_komdigi_reference(
+            field_strength_est,
+            lower_dbuvm=config.komdigi_lower_dbuvm,
+            upper_dbuvm=config.komdigi_upper_dbuvm,
         )
 
         result.update(
@@ -198,11 +306,18 @@ def run_single_measurement(freq_mhz=514.0, repeat=5, config=None):
                 "std_deviation_db": float(np.std(measurements)),
                 "power_db_est": average_bandpower_db,
                 "field_strength_dbuvm_est": field_strength_est,
+                "total_correction_db": total_correction_db,
                 "signal_quality": classify_signal_quality(field_strength_est),
+                "komdigi_category": komdigi_category,
+                "cable_loss_db": config.cable_loss_db,
+                "antenna_factor_db_per_m": config.antenna_factor_db_per_m,
+                "rx_antenna_height_m": getattr(config, "rx_antenna_height_m", None),
                 "raw_measurements": measurements.tolist(),
                 "note": (
-                    "Power dan field strength adalah estimasi relatif. "
-                    "Gunakan calibration_offset_db dari alat pembanding untuk kalibrasi."
+                    f"Power dan field strength adalah estimasi relatif. "
+                    f"Kalibrasi mode: {config.calibration_mode}. "
+                    f"Total correction: {total_correction_db:.2f} dB. "
+                    f"{get_calibration_disclaimer(config.calibration_mode)}."
                 ),
             }
         )
@@ -216,7 +331,9 @@ def run_single_measurement(freq_mhz=514.0, repeat=5, config=None):
                 "std_deviation_db": None,
                 "power_db_est": None,
                 "field_strength_dbuvm_est": None,
+                "total_correction_db": None,
                 "signal_quality": "Error",
+                "komdigi_category": "TIDAK_TERUKUR",
                 "raw_measurements": [],
                 "error": str(exc),
             }
@@ -236,8 +353,11 @@ def print_measurement_result(result):
     print(f"Frequency              : {result['frequency_mhz']:.3f} MHz")
     print(f"Sample rate            : {result['sample_rate_msps']:.3f} MS/s")
     print(f"Measurement bandwidth  : {result['measurement_bw_mhz']:.3f} MHz")
-    print(f"Gain                   : {result['gain_db']:.1f} dB")
+    print(f"Gain (requested)       : {result['gain_db']:.1f} dB")
+    print(f"Gain (actual)          : {result['actual_gain_db']:.1f} dB")
     print(f"Calibration offset     : {result['calibration_offset_db']:.2f} dB")
+    print(f"Calibration mode       : {result['calibration_mode']}")
+    print(f"Measurement mode       : {result['measurement_mode']}")
 
     if result.get("error"):
         print("")
@@ -249,48 +369,30 @@ def print_measurement_result(result):
     print(f"Min bandpower          : {result['min_bandpower_db']:.2f} dB")
     print(f"Max bandpower          : {result['max_bandpower_db']:.2f} dB")
     print(f"Std deviation          : {result['std_deviation_db']:.2f} dB")
+    print(f"Total correction       : {result.get('total_correction_db', 0):.2f} dB")
     print(f"Power estimate         : {result['power_db_est']:.2f} dB")
+    print(f"Cable loss             : {result.get('cable_loss_db', 0):.2f} dB")
+    print(f"Antenna factor         : {result.get('antenna_factor_db_per_m', 'not set')}")
+    print(f"Rx antenna height      : {result.get('rx_antenna_height_m', 'not set')} m")
     print(f"Field strength est     : {result['field_strength_dbuvm_est']:.2f} dBuV/m")
     print(f"Signal quality         : {result['signal_quality']}")
+    print(f"Komdigi category       : {result.get('komdigi_category', 'N/A')}")
+    print(f"Komdigi lower          : {getattr(result, 'komdigi_lower_dbuvm', 39.5):.1f} dBuV/m")
+    print(f"Komdigi upper          : {getattr(result, 'komdigi_upper_dbuvm', 76.2):.1f} dBuV/m")
     print(f"Raw measurements       : {result['raw_measurements']}")
     print("")
     print(result["note"])
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Core DVB-T2 coverage analyzer berbasis Orange Pi + RTL-SDR."
-    )
-    parser.add_argument("--freq", type=float, default=514.0, help="Frekuensi MHz.")
-    parser.add_argument("--repeat", type=int, default=5, help="Jumlah pengulangan.")
+    parser = argparse.ArgumentParser(description="DVB-T2 Coverage Analyzer Portable")
     parser.add_argument(
-        "--cal-offset",
-        type=float,
-        default=0.0,
-        help="Offset kalibrasi dB untuk estimasi field strength.",
+        "--list-gains", action="store_true",
+        help="Tampilkan daftar gain yang didukung RTL-SDR dan keluar.",
     )
     parser.add_argument(
-        "--gain", type=float, default=19.7, help="Gain RTL-SDR dalam dB."
-    )
-    parser.add_argument(
-        "--bw",
-        type=float,
-        default=1.8,
-        help="Measurement bandwidth dalam MHz.",
+        "--available-gains", action="store_true",
+        dest="list_gains",
+        help="Alias untuk --list-gains.",
     )
     return parser.parse_args()
-
-
-def main():
-    args = parse_args()
-    config = Dvbt2SdrConfig(
-        gain_db=args.gain,
-        measurement_bw_hz=args.bw * 1e6,
-        calibration_offset_db=args.cal_offset,
-    )
-    result = run_single_measurement(freq_mhz=args.freq, repeat=args.repeat, config=config)
-    print_measurement_result(result)
-
-
-if __name__ == "__main__":
-    main()
