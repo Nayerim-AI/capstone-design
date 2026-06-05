@@ -1,5 +1,5 @@
-# DVB-T2 channel mapping placeholder.
-# Jangan mengarang frekuensi lokal. Isi manual sesuai kanal/frekuensi lapangan.
+# DVB-T2 channel mapping.
+# Jangan mengarang frekuensi lokal. Frekuensi TVRI_JOGLO_514MHZ berasal dari file RadioPlanner Rx_Parameter.xlsx: Band 514 MHz.
 # Format minimal: channel_name, frequency_mhz, bandwidth_mhz, notes
 
 channels:
@@ -7,4 +7,10 @@ channels:
     channel_name: "TEST_CH"
     frequency_mhz: 0.0
     bandwidth_mhz: 8.0
-    notes: "Isi sesuai kanal DVB-T2 lapangan; placeholder untuk uji konfigurasi"
+    notes: "Placeholder untuk uji konfigurasi; jangan dipakai sebagai data laporan"
+
+  TVRI_JOGLO_514MHZ:
+    channel_name: "TVRI_JOGLO_514MHZ"
+    frequency_mhz: 514.0
+    bandwidth_mhz: 8.0
+    notes: "Dari Rx_Parameter.xlsx RadioPlanner: Project TVRI Joglo, Band 514 MHz. Verifikasi kanal/frekuensi lapangan sebelum laporan final."

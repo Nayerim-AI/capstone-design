@@ -22,9 +22,8 @@ MEASUREMENT_MODE: "center_bandpower_1p8mhz"
 # Mode ini tidak merepresentasikan total kanal DVB-T2 8 MHz.
 
 # === Channel / Frequency ===
-CHANNEL_NAME: "TEST_CH"
-# Nama kanal DVB-T2. Isi sesuai tabel dvbt2_channels.yaml.
-# Gunakan "TEST_CH" sebagai placeholder sebelum mapping ke kanal lokal.
+CHANNEL_NAME: "TVRI_JOGLO_514MHZ"
+# Nama kanal DVB-T2. Default diselaraskan dengan RadioPlanner Rx_Parameter.xlsx: TVRI Joglo 514 MHz.
 
 FREQUENCY_MHZ: 514.0
 # Frekuensi center dalam MHz.

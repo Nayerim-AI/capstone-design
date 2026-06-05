@@ -17,6 +17,7 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 ENV_FILE = ROOT_DIR / ".env"
 MEASUREMENT_CONFIG_FILE = ROOT_DIR / "config" / "measurement_config.yaml"
 CHANNEL_CONFIG_FILE = ROOT_DIR / "config" / "dvbt2_channels.yaml"
+LOCATION_CONFIG_FILE = ROOT_DIR / "config" / "test_locations.yaml"
 
 
 @dataclass(frozen=True)
@@ -145,6 +146,12 @@ def load_channel_map(channel_path=CHANNEL_CONFIG_FILE):
     data = _load_yaml_file(channel_path)
     channels = data.get("channels", data or {})
     return channels or {}
+
+
+def load_test_locations(location_path=LOCATION_CONFIG_FILE):
+    data = _load_yaml_file(location_path)
+    locations = data.get("locations", data or {})
+    return locations or {}
 
 
 def _apply_measurement_config_to_env(measurement_config):

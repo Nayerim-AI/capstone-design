@@ -1,0 +1,59 @@
+# DVB-T2 Field Test Locations
+# Titik pengujian lapangan — koordinat diisi manual sebelum/saat uji.
+# RadioPlanner reference diisi setelah simulasi di tiap titik.
+
+locations:
+  monas:
+    name: "Monas"
+    description: "Lapangan Monas, Jakarta Pusat"
+    latitude: null
+    longitude: null
+    frequency_mhz: 514.0
+    channel_name: "TVRI_JOGLO_514MHZ"
+    radio_planner_dbuvm: null
+    rx_antenna_height_m: 1.5
+    notes: "Area terbuka; isi koordinat GPS aktual saat uji"
+
+  bundaran_hi:
+    name: "Bundaran HI"
+    description: "Bundaran HI, Jakarta Pusat"
+    latitude: null
+    longitude: null
+    frequency_mhz: 514.0
+    channel_name: "TVRI_JOGLO_514MHZ"
+    radio_planner_dbuvm: null
+    rx_antenna_height_m: 1.5
+    notes: "Area perkotaan padat; isi koordinat GPS aktual saat uji"
+
+  cp_taman_anggrek:
+    name: "CP/Taman Anggrek"
+    description: "Central Park / Taman Anggrek, Jakarta Barat"
+    latitude: null
+    longitude: null
+    frequency_mhz: 514.0
+    channel_name: "TVRI_JOGLO_514MHZ"
+    radio_planner_dbuvm: null
+    rx_antenna_height_m: 1.5
+    notes: "Area komersial padat; isi koordinat GPS aktual saat uji"
+
+  stasiun_juanda:
+    name: "Stasiun Juanda"
+    description: "Stasiun Juanda, Jakarta Pusat"
+    latitude: null
+    longitude: null
+    frequency_mhz: 514.0
+    channel_name: "TVRI_JOGLO_514MHZ"
+    radio_planner_dbuvm: null
+    rx_antenna_height_m: 1.5
+    notes: "Area stasiun kereta; isi koordinat GPS aktual saat uji"
+
+  indomaret_tomang:
+    name: "Indomaret Tomang"
+    description: "Indomaret Tomang, Jakarta Barat"
+    latitude: null
+    longitude: null
+    frequency_mhz: 514.0
+    channel_name: "TVRI_JOGLO_514MHZ"
+    radio_planner_dbuvm: null
+    rx_antenna_height_m: 1.5
+    notes: "Area pinggir jalan padat; isi koordinat GPS aktual saat uji"

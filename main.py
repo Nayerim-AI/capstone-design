@@ -8,7 +8,7 @@ SRC_DIR = ROOT_DIR / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from config import load_config
+from config import load_config, load_test_locations
 from dvbt2_core import Dvbt2SdrConfig, list_sdr_available_gains, print_measurement_result, run_single_measurement
 from gps_reader import GPSReader
 from logger import system_logger, log_measurement_data
@@ -20,6 +20,8 @@ def parse_args():
     parser.add_argument("--mode", choices=["cli", "telegram"], default="cli")
     parser.add_argument("--freq", type=float, default=None, help="Frekuensi center dalam MHz.")
     parser.add_argument("--repeat", type=int, default=5, help="Jumlah pengulangan pengukuran CLI.")
+    parser.add_argument("--location", default=None, help="ID lokasi dari config/test_locations.yaml, contoh: monas")
+    parser.add_argument("--list-locations", action="store_true", help="Tampilkan daftar lokasi uji dan keluar.")
     parser.add_argument("--list-gains", action="store_true", help="Tampilkan gain RTL-SDR yang tersedia.")
     return parser.parse_args()
 
@@ -39,16 +41,45 @@ def build_sdr_config(app_config):
     )
 
 
+def _resolve_location(args):
+    if not args.location:
+        return None
+    locations = load_test_locations()
+    if args.location not in locations:
+        raise ValueError(f"Lokasi {args.location!r} tidak ada di config/test_locations.yaml")
+    loc = dict(locations[args.location])
+    loc["id"] = args.location
+    return loc
+
+
 def run_cli(app_config, args):
-    freq_mhz = args.freq if args.freq is not None else app_config.frequency_mhz
-    system_logger.info("Mode CLI, frekuensi %.3f MHz, repeat %s", freq_mhz, args.repeat)
+    location = _resolve_location(args)
+    freq_mhz = args.freq if args.freq is not None else (
+        float(location.get("frequency_mhz"))
+        if location and location.get("frequency_mhz") is not None
+        else app_config.frequency_mhz
+    )
+    channel_name = location.get("channel_name", app_config.channel_name) if location else app_config.channel_name
+    location_note = (
+        f"location_id={location.get('id')}; "
+        f"location_name={location.get('name')}; "
+        f"RadioPlanner={location.get('radio_planner_dbuvm')} dBµV/m; "
+        f"{location.get('notes')}"
+        if location else "CLI measurement; GPS not attached to CLI path"
+    )
+    system_logger.info(
+        "Mode CLI, lokasi %s, frekuensi %.3f MHz, repeat %s",
+        location.get("id") if location else "manual",
+        freq_mhz,
+        args.repeat,
+    )
     result = run_single_measurement(
         freq_mhz=freq_mhz,
         repeat=args.repeat,
         config=build_sdr_config(app_config),
     )
     result.update({
-        "channel_name": app_config.channel_name,
+        "channel_name": channel_name,
         "measurement_mode": app_config.measurement_mode,
         "calibration_mode": app_config.calibration_mode,
         "calibration_source": app_config.calibration_source,
@@ -61,7 +92,7 @@ def run_cli(app_config, args):
         "longitude": None,
         "gps_fix": False,
         "gps_satellites": None,
-        "channel_name": app_config.channel_name,
+        "channel_name": channel_name,
         "frequency_mhz": freq_mhz,
         "sdr_gain_db": result.get("actual_gain_db", app_config.sdr_gain_db),
         "sample_rate_hz": int(app_config.sample_rate_hz),
@@ -81,7 +112,7 @@ def run_cli(app_config, args):
         "category": result.get("komdigi_category"),
         "telegram_status": "N/A_CLI",
         "telegram_delay_s": None,
-        "notes": result.get("error") or "CLI measurement; GPS not attached to CLI path",
+        "notes": result.get("error") or location_note,
     })
     if result.get("error"):
         return 1
@@ -125,6 +156,13 @@ def main():
     except ValueError as exc:
         system_logger.error("%s", exc)
         return 1
+
+    if args.list_locations:
+        locations = load_test_locations()
+        print("Daftar lokasi uji:")
+        for key, loc in locations.items():
+            print(f"- {key}: {loc.get('name')} | freq={loc.get('frequency_mhz')} MHz | rp={loc.get('radio_planner_dbuvm')}")
+        return 0
 
     if args.list_gains:
         gains = list_sdr_available_gains()
