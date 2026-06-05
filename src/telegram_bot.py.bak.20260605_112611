@@ -1,11 +1,9 @@
 from datetime import datetime, timedelta, timezone
-import time as _time
 
 from telegram import Update
 from telegram.error import NetworkError, TelegramError
 from telegram.ext import Application, CommandHandler, ContextTypes
 
-from config import load_channel_map, load_test_locations
 from dvbt2_core import (
     Dvbt2SdrConfig,
     RtlSdr,
@@ -14,7 +12,7 @@ from dvbt2_core import (
     run_single_measurement,
 )
 from gps_reader import disabled_gps_result
-from logger import log_field_scan_data, log_measurement_data, system_logger
+from logger import system_logger, log_measurement_data
 
 
 WIB = timezone(timedelta(hours=7))
@@ -156,57 +154,6 @@ def format_measurement_message(result, location=None):
     return format_measurement_dashboard(result, location, _CompatConfig())
 
 
-def _ordered_channels_for_scan(scan_mode, channel_id=None):
-    channels = load_channel_map()
-    if scan_mode == "single":
-        if not channel_id:
-            return []
-        if channel_id not in channels:
-            raise ValueError(f"Channel {channel_id!r} tidak ada")
-        return [(channel_id, dict(channels[channel_id]))]
-    wanted = {"baseline"} if scan_mode == "baseline" else {"optional"} if scan_mode == "optional" else {"baseline", "optional"}
-    picked = [(key, dict(ch)) for key, ch in channels.items() if str(ch.get("scan_priority", "")).lower() in wanted]
-    return sorted(picked, key=lambda item: (item[1].get("scan_priority") != "baseline", float(item[1].get("frequency_mhz", 0))))
-
-
-def format_locations_message(route_order=False):
-    items = list(load_test_locations().items())
-    if route_order:
-        items.sort(key=lambda kv: int(kv[1].get("route_order", 999)))
-    lines = ["📍 Lokasi Uji DVB-T2"]
-    for key, loc in items:
-        lines.append(f"{loc.get('route_order', '-')}. {key} — {loc.get('name')}")
-        lines.append(f"   awal: {loc.get('initial_lat')}, {loc.get('initial_lon')}")
-    return "\n".join(lines)
-
-
-def format_channels_message():
-    lines = ["📡 Channel/MUX Jabodetabek"]
-    for key, ch in _ordered_channels_for_scan("all"):
-        lines.append(f"- {key}: UHF {ch.get('uhf_channel')} / {ch.get('frequency_mhz')} MHz / {ch.get('network')} / {ch.get('scan_priority')}")
-    return "\n".join(lines)
-
-
-def format_scan_help_message():
-    return "\n".join([
-        "📡 Perintah Field Scan",
-        "",
-        "/locations - daftar titik uji",
-        "/route - urutan rute",
-        "/channels - daftar MUX/frekuensi",
-        "/scan <lokasi> baseline - scan 6 MUX wajib",
-        "/scan <lokasi> optional - scan 514/690 MHz",
-        "/scan <lokasi> all - scan baseline + optional",
-        "/scan <lokasi> single <channel_id> - scan satu MUX",
-        "",
-        "Contoh:",
-        "/scan monas baseline",
-        "/scan bundaran_hi single UHF24_EMTEK",
-        "",
-        "Catatan: lock/SNR/MER/BER/PER masih unknown karena flow RTL-SDR belum decoder DVB-T2.",
-    ])
-
-
 class TelegramBot:
     def __init__(self, app_config, gps_reader=None):
         self.config = app_config
@@ -218,12 +165,7 @@ class TelegramBot:
             "Perintah tersedia:\n"
             "/status - status sistem\n"
             "/measure - pengukuran RF dan status GPS\n"
-            "/measure <freq> - pengukuran pada frekuensi tertentu\n"
-            "/locations - daftar titik uji\n"
-            "/route - urutan rute lapangan\n"
-            "/channels - daftar MUX/frekuensi\n"
-            "/scanhelp - bantuan scan lapangan\n"
-            "/scan <lokasi> baseline - scan 6 MUX wajib"
+            "/measure <freq> - pengukuran pada frekuensi tertentu"
         )
 
     async def status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -310,98 +252,6 @@ class TelegramBot:
             format_measurement_dashboard(result, gps_result, self.config)
         )
 
-
-    async def locations(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text(format_locations_message(route_order=False))
-
-    async def route(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text(format_locations_message(route_order=True))
-
-    async def channels(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text(format_channels_message())
-
-    async def scanhelp(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text(format_scan_help_message())
-
-    async def scan(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if len(context.args) < 2:
-            await update.message.reply_text(format_scan_help_message())
-            return
-        location_id = context.args[0]
-        scan_mode = context.args[1].lower()
-        channel_id = context.args[2] if len(context.args) >= 3 else None
-        if scan_mode not in {"baseline", "optional", "all", "single"}:
-            await update.message.reply_text("Mode scan tidak valid. Pakai: baseline, optional, all, single")
-            return
-        locations = load_test_locations()
-        if location_id not in locations:
-            await update.message.reply_text(f"Lokasi tidak ditemukan: {location_id}. Cek /locations")
-            return
-        location = dict(locations[location_id])
-        location["id"] = location_id
-        try:
-            channels = _ordered_channels_for_scan(scan_mode, channel_id)
-        except ValueError as exc:
-            await update.message.reply_text(str(exc))
-            return
-        if not channels:
-            await update.message.reply_text("Tidak ada channel untuk scan. Cek /channels")
-            return
-
-        await update.message.reply_text(f"Scan dimulai: {location_id} / {scan_mode} / {len(channels)} channel")
-        summary = [f"📡 Hasil Scan {location.get('name')} ({scan_mode})"]
-        sdr_config = Dvbt2SdrConfig(
-            calibration_offset_db=self.config.calibration_offset_db,
-            calibration_mode=self.config.calibration_mode,
-            cable_loss_db=self.config.cable_loss_db,
-            antenna_factor_db_per_m=self.config.antenna_factor_db_per_m,
-            komdigi_lower_dbuvm=self.config.komdigi_lower_dbuvm,
-            komdigi_upper_dbuvm=self.config.komdigi_upper_dbuvm,
-            gain_db=self.config.sdr_gain_db,
-        )
-        gps_result = self._read_gps()
-        for key, channel in channels:
-            freq_mhz = float(channel.get("frequency_mhz"))
-            result = run_single_measurement(freq_mhz=freq_mhz, repeat=5, config=sdr_config)
-            result.update({
-                "channel_name": channel.get("channel_name", key),
-                "measurement_mode": self.config.measurement_mode,
-                "calibration_mode": self.config.calibration_mode,
-                "calibration_source": self.config.calibration_source,
-                "komdigi_lower_dbuvm": self.config.komdigi_lower_dbuvm,
-                "komdigi_upper_dbuvm": self.config.komdigi_upper_dbuvm,
-            })
-            status = "ERR" if result.get("error") else "OK"
-            summary.append(
-                f"UHF {channel.get('uhf_channel')} {freq_mhz:.0f} MHz {channel.get('network')}: "
-                f"{status}, {result.get('komdigi_category')}, { _fmt_number(result.get('average_bandpower_db')) } dB"
-            )
-            log_field_scan_data({
-                "site_id": location_id,
-                "site_name": location.get("name"),
-                "initial_lat": location.get("initial_lat"),
-                "initial_lon": location.get("initial_lon"),
-                "lat": gps_result.get("latitude"),
-                "lon": gps_result.get("longitude"),
-                "uhf_channel": channel.get("uhf_channel"),
-                "frequency_mhz": freq_mhz,
-                "channel_name": channel.get("channel_name", key),
-                "network": channel.get("network"),
-                "scan_priority": channel.get("scan_priority"),
-                "lock_status": "unknown",
-                "signal_strength": result.get("average_bandpower_db"),
-                "field_strength_est_dbuvm": result.get("field_strength_dbuvm_est"),
-                "antenna_type": "capung",
-                "antenna_height_m": location.get("rx_antenna_height_m", self.config.rx_antenna_height_m),
-                "receiver_gain_db": result.get("actual_gain_db", self.config.sdr_gain_db),
-                "calibration_mode": self.config.calibration_mode,
-                "radio_planner_dbuvm": location.get("radio_planner_dbuvm"),
-                "measurement_mode": self.config.measurement_mode,
-                "notes": result.get("error") or "Telegram /scan; lock/SNR/MER/BER/PER belum tersedia dari RTL-SDR flow",
-            })
-        summary.append("\n⚠️ Estimasi SDR relatif. Bukan kalibrasi absolut.")
-        await update.message.reply_text("\n".join(summary[:35]))
-
     def _read_gps(self):
         if not self.config.gps_enabled:
             return disabled_gps_result()
@@ -419,11 +269,6 @@ def run_telegram_bot(app_config, gps_reader=None):
     application.add_handler(CommandHandler("start", bot.start))
     application.add_handler(CommandHandler("status", bot.status))
     application.add_handler(CommandHandler("measure", bot.measure))
-    application.add_handler(CommandHandler("locations", bot.locations))
-    application.add_handler(CommandHandler("route", bot.route))
-    application.add_handler(CommandHandler("channels", bot.channels))
-    application.add_handler(CommandHandler("scanhelp", bot.scanhelp))
-    application.add_handler(CommandHandler("scan", bot.scan))
 
     system_logger.info("Bot Telegram berjalan dengan polling.")
     try:
