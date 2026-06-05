@@ -8,6 +8,7 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 LOG_DIR = ROOT_DIR / "logs"
 DATA_DIR = ROOT_DIR / "data"
 MEASUREMENT_LOG_PATH = DATA_DIR / "measurement_log.csv"
+FIELD_SCAN_LOG_PATH = DATA_DIR / "field_scan_log.csv"
 
 MEASUREMENT_LOG_HEADER = [
     "timestamp",
@@ -35,6 +36,38 @@ MEASUREMENT_LOG_HEADER = [
     "category",
     "telegram_status",
     "telegram_delay_s",
+    "notes",
+]
+
+FIELD_SCAN_HEADER = [
+    "timestamp",
+    "site_id",
+    "site_name",
+    "initial_lat",
+    "initial_lon",
+    "lat",
+    "lon",
+    "uhf_channel",
+    "frequency_mhz",
+    "channel_name",
+    "network",
+    "scan_priority",
+    "lock_status",
+    "signal_strength",
+    "field_strength_est_dbuvm",
+    "signal_quality",
+    "snr_mer_db",
+    "ber",
+    "per",
+    "antenna_type",
+    "antenna_height_m",
+    "antenna_direction_deg",
+    "receiver_gain_db",
+    "calibration_mode",
+    "radio_planner_dbuvm",
+    "radio_planner_margin_db",
+    "delta_vs_radioplanner_db",
+    "measurement_mode",
     "notes",
 ]
 
@@ -76,50 +109,43 @@ def _normalize_value(value):
     return value
 
 
-def log_measurement_data(measurement, csv_path=MEASUREMENT_LOG_PATH):
-    """Append satu baris RF measurement log ke CSV.
-
-    Fungsi ini tetap menulis log walaupun GPS belum fix atau Telegram gagal.
-    """
-    DATA_DIR.mkdir(exist_ok=True)
+def _append_csv(header, data, csv_path):
     csv_path = Path(csv_path)
     csv_path.parent.mkdir(parents=True, exist_ok=True)
-
-    row = {key: _normalize_value(measurement.get(key)) for key in MEASUREMENT_LOG_HEADER}
+    row = {key: _normalize_value(data.get(key)) for key in header}
     row["timestamp"] = row.get("timestamp") or _now_timestamp()
-
     file_exists = csv_path.is_file()
     try:
         with csv_path.open(mode="a", newline="") as file:
-            writer = csv.DictWriter(file, fieldnames=MEASUREMENT_LOG_HEADER)
+            writer = csv.DictWriter(file, fieldnames=header)
             if not file_exists:
                 writer.writeheader()
             writer.writerow(row)
         return row
     except Exception as exc:
-        system_logger.error("Gagal menulis RF measurement log ke CSV: %s", exc)
+        system_logger.error("Gagal menulis CSV %s: %s", csv_path.name, exc)
         raise
+
+
+def log_measurement_data(measurement, csv_path=MEASUREMENT_LOG_PATH):
+    DATA_DIR.mkdir(exist_ok=True)
+    return _append_csv(MEASUREMENT_LOG_HEADER, measurement, csv_path)
+
+
+def log_field_scan_data(scan_data, csv_path=FIELD_SCAN_LOG_PATH):
+    DATA_DIR.mkdir(exist_ok=True)
+    return _append_csv(FIELD_SCAN_HEADER, scan_data, csv_path)
 
 
 def log_gps_data(latitude, longitude, altitude=None, speed=None):
     DATA_DIR.mkdir(exist_ok=True)
     csv_path = DATA_DIR / "gps_log.csv"
     file_exists = csv_path.is_file()
-
     try:
         with csv_path.open(mode="a", newline="") as file:
             writer = csv.writer(file)
             if not file_exists:
                 writer.writerow(["Timestamp", "Latitude", "Longitude", "Altitude", "Speed"])
-
-            writer.writerow(
-                [
-                    _now_timestamp(),
-                    latitude,
-                    longitude,
-                    altitude,
-                    speed,
-                ]
-            )
+            writer.writerow([_now_timestamp(), latitude, longitude, altitude, speed])
     except Exception as exc:
         system_logger.error("Gagal menulis log GPS ke CSV: %s", exc)

@@ -1,16 +1,99 @@
-# DVB-T2 channel mapping.
-# Jangan mengarang frekuensi lokal. Frekuensi TVRI_JOGLO_514MHZ berasal dari file RadioPlanner Rx_Parameter.xlsx: Band 514 MHz.
-# Format minimal: channel_name, frequency_mhz, bandwidth_mhz, notes
+# DVB-T2 Channel Mapping — Jabodetabek DVB-T2 MUX
+# Baseline 6 MUX dari Permenkominfo No. 6 Tahun 2019, dikonfirmasi via Telkomsel.
+# Source: referensi_uji_lapangan_dvbt2_jabodetabek_radio_planner.md
+# Channel opsional dicatat terpisah (tidak masuk baseline scan).
 
 channels:
-  TEST_CH:
-    channel_name: "TEST_CH"
-    frequency_mhz: 0.0
+  # === Baseline — Wajib Scan Semua Titik ===
+  UHF24_EMTEK:
+    channel_name: "UHF24_EMTEK"
+    uhf_channel: 24
+    frequency_mhz: 498.0
     bandwidth_mhz: 8.0
-    notes: "Placeholder untuk uji konfigurasi; jangan dipakai sebagai data laporan"
+    network: "Emtek Group"
+    service_names: "SCTV, Indosiar, Moji, Mentari TV"
+    scan_priority: "baseline"
 
-  TVRI_JOGLO_514MHZ:
-    channel_name: "TVRI_JOGLO_514MHZ"
+  UHF28_MNC:
+    channel_name: "UHF28_MNC"
+    uhf_channel: 28
+    frequency_mhz: 530.0
+    bandwidth_mhz: 8.0
+    network: "MNC Group"
+    service_names: "RCTI, GTV, MNCTV, iNews"
+    scan_priority: "baseline"
+
+  UHF31_METROTV:
+    channel_name: "UHF31_METROTV"
+    uhf_channel: 31
+    frequency_mhz: 554.0
+    bandwidth_mhz: 8.0
+    network: "Metro TV Group"
+    service_names: "Metro TV, Magna Channel, BN Channel"
+    scan_priority: "baseline"
+
+  UHF34_VIVA:
+    channel_name: "UHF34_VIVA"
+    uhf_channel: 34
+    frequency_mhz: 578.0
+    bandwidth_mhz: 8.0
+    network: "VIVA Group"
+    service_names: "tvOne, ANTV, JakTV"
+    scan_priority: "baseline"
+
+  UHF40_TRANS:
+    channel_name: "UHF40_TRANS"
+    uhf_channel: 40
+    frequency_mhz: 626.0
+    bandwidth_mhz: 8.0
+    network: "Trans Media"
+    service_names: "Trans TV, Trans7, CNN Indonesia, CNBC Indonesia"
+    scan_priority: "baseline"
+
+  UHF43_TVRI:
+    channel_name: "UHF43_TVRI"
+    uhf_channel: 43
+    frequency_mhz: 650.0
+    bandwidth_mhz: 8.0
+    network: "TVRI / Publik"
+    service_names: "TVRI Nasional, TVRI Sport, TVRI World, TVRI Jakarta, NET"
+    scan_priority: "baseline"
+
+  # === Optional — Scan jika ada waktu ===
+  UHF25_TVRI_JOGLO_514:
+    channel_name: "UHF25_TVRI_JOGLO_514"
+    uhf_channel: 25
     frequency_mhz: 514.0
     bandwidth_mhz: 8.0
-    notes: "Dari Rx_Parameter.xlsx RadioPlanner: Project TVRI Joglo, Band 514 MHz. Verifikasi kanal/frekuensi lapangan sebelum laporan final."
+    network: "TVRI Joglo"
+    service_names: "Dari Rx_Parameter.xlsx RadioPlanner; optional scan"
+    scan_priority: "optional"
+
+  UHF48_OPTIONAL:
+    channel_name: "UHF48_OPTIONAL"
+    uhf_channel: 48
+    frequency_mhz: 690.0
+    bandwidth_mhz: 8.0
+    network: "Optional"
+    service_names: "Cek tambahan jika ada waktu"
+    scan_priority: "optional"
+
+  # === Legacy — Placeholder, jangan pakai ===
+  TVRI_JOGLO_514MHZ:
+    channel_name: "TVRI_JOGLO_514MHZ"
+    uhf_channel: 25
+    frequency_mhz: 514.0
+    bandwidth_mhz: 8.0
+    network: "TVRI Joglo (legacy)"
+    service_names: "RadioPlanner Rx_Parameter legacy; gunakan UHF25_TVRI_JOGLO_514"
+    scan_priority: "placeholder"
+
+
+  TEST_CH:
+    channel_name: "TEST_CH"
+    uhf_channel: 0
+    frequency_mhz: 0.0
+    bandwidth_mhz: 8.0
+    network: "PLACEHOLDER"
+    service_names: "Jangan dipakai untuk data laporan"
+    scan_priority: "placeholder"

@@ -1,59 +1,78 @@
-# DVB-T2 Field Test Locations
-# Titik pengujian lapangan — koordinat diisi manual sebelum/saat uji.
-# RadioPlanner reference diisi setelah simulasi di tiap titik.
+# DVB-T2 Field Test Locations — Jakarta Pusat & Jakarta Barat
+# Source: referensi_uji_lapangan_dvbt2_jabodetabek_radio_planner.md
+# initial_lat/initial_lon = patokan RadioPlanner; latitude/longitude aktual diisi dari GPS saat pengukuran.
 
 locations:
-  monas:
-    name: "Monas"
-    description: "Lapangan Monas, Jakarta Pusat"
+  stasiun_juanda:
+    name: "Stasiun Juanda"
+    description: "Stasiun, rel, gedung sekitar — uji area transportasi dan potensi noise/multipath"
     latitude: null
     longitude: null
+    initial_lat: -6.1711
+    initial_lon: 106.8350
+    route_order: 1
+    rx_antenna_height_m: 1.5
+    radio_planner_dbuvm: null
     frequency_mhz: 514.0
     channel_name: "TVRI_JOGLO_514MHZ"
-    radio_planner_dbuvm: null
+    frequency_mhz: 514.0
+    channel_name: "TVRI_JOGLO_514MHZ"
+    notes: "Ambil koordinat aktual GPS. Area transportasi; catat rel, gedung sekitar, noise lokal."
+
+  monas:
+    name: "Monas / Lapangan Merdeka"
+    description: "Area relatif terbuka — benchmark outdoor/open area"
+    latitude: null
+    longitude: null
+    initial_lat: -6.1754
+    initial_lon: 106.8272
+    route_order: 2
     rx_antenna_height_m: 1.5
-    notes: "Area terbuka; isi koordinat GPS aktual saat uji"
+    radio_planner_dbuvm: null
+    frequency_mhz: 514.0
+    channel_name: "TVRI_JOGLO_514MHZ"
+    notes: "Benchmark open area. Harus jadi titik pembanding terbaik; catat arah antena."
 
   bundaran_hi:
     name: "Bundaran HI"
-    description: "Bundaran HI, Jakarta Pusat"
+    description: "Gedung tinggi, urban canyon — uji multipath/refleksi gedung"
     latitude: null
     longitude: null
+    initial_lat: -6.1944
+    initial_lon: 106.8230
+    route_order: 3
+    rx_antenna_height_m: 1.5
+    radio_planner_dbuvm: null
     frequency_mhz: 514.0
     channel_name: "TVRI_JOGLO_514MHZ"
-    radio_planner_dbuvm: null
-    rx_antenna_height_m: 1.5
-    notes: "Area perkotaan padat; isi koordinat GPS aktual saat uji"
-
-  cp_taman_anggrek:
-    name: "CP/Taman Anggrek"
-    description: "Central Park / Taman Anggrek, Jakarta Barat"
-    latitude: null
-    longitude: null
-    frequency_mhz: 514.0
-    channel_name: "TVRI_JOGLO_514MHZ"
-    radio_planner_dbuvm: null
-    rx_antenna_height_m: 1.5
-    notes: "Area komersial padat; isi koordinat GPS aktual saat uji"
-
-  stasiun_juanda:
-    name: "Stasiun Juanda"
-    description: "Stasiun Juanda, Jakarta Pusat"
-    latitude: null
-    longitude: null
-    frequency_mhz: 514.0
-    channel_name: "TVRI_JOGLO_514MHZ"
-    radio_planner_dbuvm: null
-    rx_antenna_height_m: 1.5
-    notes: "Area stasiun kereta; isi koordinat GPS aktual saat uji"
+    notes: "Urban canyon. Catat apakah antena terhalang gedung, arah antena, dan posisi outdoor/semi-indoor."
 
   indomaret_tomang:
-    name: "Indomaret Tomang"
-    description: "Indomaret Tomang, Jakarta Barat"
+    name: "Indomaret Tomang Raya / Tomang"
+    description: "Roadside/residential/commercial — pembanding Jakarta Barat"
     latitude: null
     longitude: null
+    initial_lat: -6.1683
+    initial_lon: 106.8007
+    route_order: 4
+    rx_antenna_height_m: 1.5
+    radio_planner_dbuvm: null
     frequency_mhz: 514.0
     channel_name: "TVRI_JOGLO_514MHZ"
-    radio_planner_dbuvm: null
+    notes: "Roadside Jakarta Barat. Catat kendaraan, gedung sekitar, dan gangguan lokal."
+
+  cp_taman_anggrek:
+    name: "Central Park / Taman Anggrek"
+    description: "Mall, gedung tinggi, Jakarta Barat — uji area padat gedung"
+    latitude: null
+    longitude: null
+    initial_lat: -6.1774
+    initial_lon: 106.7907
+    alternate_initial_lat: -6.1788
+    alternate_initial_lon: 106.7931
+    route_order: 5
     rx_antenna_height_m: 1.5
-    notes: "Area pinggir jalan padat; isi koordinat GPS aktual saat uji"
+    radio_planner_dbuvm: null
+    frequency_mhz: 514.0
+    channel_name: "TVRI_JOGLO_514MHZ"
+    notes: "Area mall/gedung tinggi. Alternatif koordinat tersedia; pilih titik berdiri antena aktual."

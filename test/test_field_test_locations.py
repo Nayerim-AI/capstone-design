@@ -4,7 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from config import load_test_locations, load_channel_map, load_config
+from config import load_channel_map, load_test_locations
 
 
 class FieldTestLocationPlanTest(unittest.TestCase):
@@ -15,19 +15,20 @@ class FieldTestLocationPlanTest(unittest.TestCase):
             {"monas", "bundaran_hi", "cp_taman_anggrek", "stasiun_juanda", "indomaret_tomang"},
         )
 
-    def test_each_location_is_model_aligned_placeholder(self):
+    def test_each_location_has_route_order_and_reference_placeholder(self):
         locations = load_test_locations()
+        self.assertEqual(
+            {k: v["route_order"] for k, v in locations.items()},
+            {"stasiun_juanda": 1, "monas": 2, "bundaran_hi": 3, "indomaret_tomang": 4, "cp_taman_anggrek": 5},
+        )
         for key, loc in locations.items():
-            self.assertEqual(loc["frequency_mhz"], 514.0, key)
-            self.assertEqual(loc["channel_name"], "TVRI_JOGLO_514MHZ", key)
             self.assertEqual(loc["rx_antenna_height_m"], 1.5, key)
             self.assertIsNone(loc["radio_planner_dbuvm"], key)
-            self.assertIn("isi koordinat GPS aktual", loc["notes"], key)
+            self.assertIsNotNone(loc["initial_lat"], key)
+            self.assertIsNotNone(loc["initial_lon"], key)
 
-    def test_channel_defaults_to_radioplanner_band(self):
-        cfg = load_config()
+    def test_legacy_radioplanner_channel_still_present(self):
         channels = load_channel_map()
-        self.assertEqual(cfg.channel_name, "TVRI_JOGLO_514MHZ")
         self.assertIn("TVRI_JOGLO_514MHZ", channels)
         self.assertEqual(channels["TVRI_JOGLO_514MHZ"]["frequency_mhz"], 514.0)
         self.assertEqual(channels["TVRI_JOGLO_514MHZ"]["bandwidth_mhz"], 8.0)
