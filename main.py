@@ -11,7 +11,7 @@ if str(SRC_DIR) not in sys.path:
 from config import load_channel_map, load_config, load_test_locations
 from dvbt2_core import Dvbt2SdrConfig, list_sdr_available_gains, print_measurement_result, run_single_measurement
 from gps_reader import GPSReader
-from logger import log_field_scan_data, log_measurement_data, system_logger
+from logger import log_field_scan_data, log_measurement_data, log_measurement_to_db, system_logger
 from telegram_bot import run_telegram_bot
 
 
@@ -125,6 +125,9 @@ def _run_one(app_config, freq_mhz, channel_name, location=None, channel=None, ar
         "measurement_bandwidth_hz": int(app_config.measurement_bandwidth_hz),
         "measurement_mode": app_config.measurement_mode,
         "raw_bandpower_db": result.get("average_bandpower_db"),
+        "min_bandpower_db": result.get("min_bandpower_db"),
+        "max_bandpower_db": result.get("max_bandpower_db"),
+        "std_deviation_db": result.get("std_deviation_db"),
         "calibration_mode": app_config.calibration_mode,
         "calibration_offset_db": app_config.calibration_offset_db,
         "calibration_source": app_config.calibration_source,
@@ -135,12 +138,15 @@ def _run_one(app_config, freq_mhz, channel_name, location=None, channel=None, ar
         "field_strength_est_dbuvm": result.get("field_strength_dbuvm_est"),
         "komdigi_lower_dbuvm": app_config.komdigi_lower_dbuvm,
         "komdigi_upper_dbuvm": app_config.komdigi_upper_dbuvm,
+        "komdigi_category": result.get("komdigi_category"),
         "category": result.get("komdigi_category"),
+        "signal_quality": result.get("signal_quality"),
         "telegram_status": "N/A_CLI",
         "telegram_delay_s": None,
         "notes": _measurement_note(location, channel, result.get("error")),
     }
     log_measurement_data(common)
+    log_measurement_to_db(common, result.get("raw_measurements"))
     log_field_scan_data({
         "site_id": location.get("id") if location else None,
         "site_name": location.get("name") if location else None,

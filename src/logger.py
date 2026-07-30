@@ -149,3 +149,35 @@ def log_gps_data(latitude, longitude, altitude=None, speed=None):
             writer.writerow([_now_timestamp(), latitude, longitude, altitude, speed])
     except Exception as exc:
         system_logger.error("Gagal menulis log GPS ke CSV: %s", exc)
+
+
+# Database logging integration
+try:
+    from database import init_db as _db_init
+    from database import insert_measurement as _db_insert
+    DB_AVAILABLE = True
+except ImportError:
+    DB_AVAILABLE = False
+    system_logger.warning("Database module tidak tersedia - logging hanya ke CSV")
+
+
+def log_measurement_to_db(measurement: dict, raw_measurements: list = None, session_id: int = None) -> int:
+    """Log measurement to SQLite database with raw field strength readings.
+
+    Args:
+        measurement: Dict with measurement data (same as CSV logging).
+        raw_measurements: List of individual raw bandpower_db readings.
+        session_id: Optional scan session ID for grouping.
+
+    Returns:
+        Measurement ID if successful, None if DB unavailable.
+    """
+    if not DB_AVAILABLE:
+        return None
+
+    try:
+        _db_init()
+        return _db_insert(measurement, raw_measurements, session_id)
+    except Exception as exc:
+        system_logger.error("Gagal menulis ke database: %s", exc)
+        return None
